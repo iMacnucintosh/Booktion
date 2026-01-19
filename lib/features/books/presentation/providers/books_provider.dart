@@ -1,0 +1,240 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import '../../../../core/error/failures.dart';
+import '../../../../core/network/dio_client.dart';
+import '../../data/datasources/notion_remote_datasource.dart';
+import '../../data/repositories/book_repository_impl.dart';
+import '../../domain/entities/book.dart';
+import '../../domain/repositories/book_repository.dart';
+import '../../domain/usecases/create_book.dart';
+import '../../domain/usecases/delete_book.dart';
+import '../../domain/usecases/get_book_by_id.dart';
+import '../../domain/usecases/get_books.dart';
+import '../../domain/usecases/update_book.dart';
+
+part 'books_provider.g.dart';
+
+// ==================== Data Layer Providers ====================
+
+@riverpod
+NotionRemoteDataSource notionRemoteDataSource(Ref ref) {
+  final dio = ref.watch(dioClientProvider);
+  return NotionRemoteDataSourceImpl(dio);
+}
+
+@riverpod
+BookRepository bookRepository(Ref ref) {
+  final dataSource = ref.watch(notionRemoteDataSourceProvider);
+  return BookRepositoryImpl(dataSource);
+}
+
+// ==================== Use Case Providers ====================
+
+@riverpod
+GetBooks getBooks(Ref ref) {
+  return GetBooks(ref.watch(bookRepositoryProvider));
+}
+
+@riverpod
+GetBookById getBookById(Ref ref) {
+  return GetBookById(ref.watch(bookRepositoryProvider));
+}
+
+@riverpod
+CreateBook createBook(Ref ref) {
+  return CreateBook(ref.watch(bookRepositoryProvider));
+}
+
+@riverpod
+UpdateBook updateBook(Ref ref) {
+  return UpdateBook(ref.watch(bookRepositoryProvider));
+}
+
+@riverpod
+DeleteBook deleteBook(Ref ref) {
+  return DeleteBook(ref.watch(bookRepositoryProvider));
+}
+
+// ==================== State Providers ====================
+
+/// Filter state for books list
+@riverpod
+class BooksFilter extends _$BooksFilter {
+  @override
+  BookStatus? build() => null;
+
+  void setFilter(BookStatus? status) {
+    state = status;
+  }
+
+  void clearFilter() {
+    state = null;
+  }
+}
+
+/// Search query state
+@riverpod
+class BooksSearchQuery extends _$BooksSearchQuery {
+  @override
+  String build() => '';
+
+  void setQuery(String query) {
+    state = query;
+  }
+
+  void clearQuery() {
+    state = '';
+  }
+}
+
+/// Provider for fetching books list with filters
+@riverpod
+Future<List<Book>> booksList(Ref ref) async {
+  final getBooks = ref.watch(getBooksProvider);
+  final filter = ref.watch(booksFilterProvider);
+  final searchQuery = ref.watch(booksSearchQueryProvider);
+
+  final result = await getBooks(
+    status: filter,
+    searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
+  );
+
+  return result.fold(
+    (failure) => throw Exception(failure.displayMessage),
+    (books) => books,
+  );
+}
+
+/// Provider for fetching a single book by ID
+@riverpod
+Future<Book> bookDetail(Ref ref, String id) async {
+  final getBookById = ref.watch(getBookByIdProvider);
+  final result = await getBookById(id);
+
+  return result.fold(
+    (failure) => throw Exception(failure.displayMessage),
+    (book) => book,
+  );
+}
+
+// ==================== Mutation Notifiers ====================
+
+/// State for book mutations (create, update, delete)
+class BookMutationState {
+  final bool isLoading;
+  final String? error;
+  final Book? result;
+
+  const BookMutationState({
+    this.isLoading = false,
+    this.error,
+    this.result,
+  });
+
+  BookMutationState copyWith({
+    bool? isLoading,
+    String? error,
+    Book? result,
+  }) {
+    return BookMutationState(
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+      result: result ?? this.result,
+    );
+  }
+}
+
+/// Notifier for creating books
+@riverpod
+class CreateBookNotifier extends _$CreateBookNotifier {
+  @override
+  BookMutationState build() => const BookMutationState();
+
+  Future<bool> create(Book book) async {
+    state = const BookMutationState(isLoading: true);
+
+    final createBook = ref.read(createBookProvider);
+    final result = await createBook(book);
+
+    return result.fold(
+      (failure) {
+        state = BookMutationState(error: failure.displayMessage);
+        return false;
+      },
+      (createdBook) {
+        state = BookMutationState(result: createdBook);
+        // Invalidate the books list to refresh
+        ref.invalidate(booksListProvider);
+        return true;
+      },
+    );
+  }
+
+  void reset() {
+    state = const BookMutationState();
+  }
+}
+
+/// Notifier for updating books
+@riverpod
+class UpdateBookNotifier extends _$UpdateBookNotifier {
+  @override
+  BookMutationState build() => const BookMutationState();
+
+  Future<bool> update(Book book) async {
+    state = const BookMutationState(isLoading: true);
+
+    final updateBook = ref.read(updateBookProvider);
+    final result = await updateBook(book);
+
+    return result.fold(
+      (failure) {
+        state = BookMutationState(error: failure.displayMessage);
+        return false;
+      },
+      (updatedBook) {
+        state = BookMutationState(result: updatedBook);
+        // Invalidate the books list and detail to refresh
+        ref.invalidate(booksListProvider);
+        ref.invalidate(bookDetailProvider(book.id));
+        return true;
+      },
+    );
+  }
+
+  void reset() {
+    state = const BookMutationState();
+  }
+}
+
+/// Notifier for deleting books
+@riverpod
+class DeleteBookNotifier extends _$DeleteBookNotifier {
+  @override
+  BookMutationState build() => const BookMutationState();
+
+  Future<bool> delete(String id) async {
+    state = const BookMutationState(isLoading: true);
+
+    final deleteBook = ref.read(deleteBookProvider);
+    final result = await deleteBook(id);
+
+    return result.fold(
+      (failure) {
+        state = BookMutationState(error: failure.displayMessage);
+        return false;
+      },
+      (_) {
+        state = const BookMutationState();
+        // Invalidate the books list to refresh
+        ref.invalidate(booksListProvider);
+        return true;
+      },
+    );
+  }
+
+  void reset() {
+    state = const BookMutationState();
+  }
+}
