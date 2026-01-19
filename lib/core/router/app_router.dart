@@ -39,6 +39,27 @@ GoRouter appRouter(Ref ref) {
           },
         ),
       ),
+      // Create route MUST come before :id route to avoid "create" being matched as an id
+      GoRoute(
+        path: AppRoutes.bookCreate,
+        name: 'bookCreate',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const BookFormPage(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
+            );
+          },
+        ),
+      ),
       GoRoute(
         path: AppRoutes.bookDetail,
         name: 'bookDetail',
@@ -62,26 +83,6 @@ GoRouter appRouter(Ref ref) {
             },
           );
         },
-      ),
-      GoRoute(
-        path: AppRoutes.bookCreate,
-        name: 'bookCreate',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const BookFormPage(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 1),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              )),
-              child: child,
-            );
-          },
-        ),
       ),
       GoRoute(
         path: AppRoutes.bookEdit,

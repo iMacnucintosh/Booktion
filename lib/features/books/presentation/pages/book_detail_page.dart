@@ -701,27 +701,31 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
   }
 
   void _showDeleteConfirmation(BuildContext context, WidgetRef ref) {
+    // Save the page context before showing the dialog
+    final pageContext = context;
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Eliminar libro'),
         content: Text(
           '¿Estás seguro de que quieres eliminar "${book.nombre}"? Esta acción no se puede deshacer.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               final success = await ref
                   .read(deleteBookNotifierProvider.notifier)
                   .delete(book.id);
-              if (success && context.mounted) {
-                context.pop();
-                ScaffoldMessenger.of(context).showSnackBar(
+              if (success && pageContext.mounted) {
+                // Navigate to the books list
+                pageContext.go('/');
+                ScaffoldMessenger.of(pageContext).showSnackBar(
                   const SnackBar(content: Text('Libro eliminado')),
                 );
               }

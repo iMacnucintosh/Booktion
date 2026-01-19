@@ -33,67 +33,90 @@ class BookCard extends StatelessWidget {
                   width: 1.5)
               : null,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Book icon/emoji
-              _buildBookIcon(context),
-              const SizedBox(width: 12),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Book icon/emoji
+                  _buildBookIcon(context),
+                  const SizedBox(width: 12),
 
-              // Book info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title
-                    Text(
-                      book.nombre,
-                      style: theme.textTheme.titleLarge,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Author
-                    Text(
-                      book.autor,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-
-                    // Series (if available)
-                    if (book.serie != null && book.serie!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        book.serie!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 8),
-
-                    // Bottom row: Rating and tags
-                    Row(
+                  // Book info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (book.valoracion != null) ...[
-                          RatingBadge(rating: book.valoracion),
-                          const SizedBox(width: 8),
-                        ],
-                        if (book.etiquetas.isNotEmpty)
-                          Expanded(
-                            child: _buildTags(context),
+                        // Title
+                        Text(
+                          book.nombre,
+                          style: theme.textTheme.titleLarge,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+
+                        // Author
+                        Text(
+                          book.autor,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+
+                        // Series (if available)
+                        if (book.serie != null && book.serie!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            book.serie!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
+                        ],
+
+                        const SizedBox(height: 8),
+
+                        // Bottom row: Rating and tags
+                        Row(
+                          children: [
+                            if (book.valoracion != null) ...[
+                              RatingBadge(rating: book.valoracion),
+                              const SizedBox(width: 8),
+                            ],
+                            if (book.etiquetas.isNotEmpty)
+                              Expanded(
+                                child: _buildTags(context),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Completed indicator - bottom right
+            if (book.estado == BookStatus.terminado)
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: const BoxDecoration(
+                    color: AppColors.statusCompleted,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 12,
+                  ),
                 ),
               ),
-
-            ],
-          ),
+          ],
         ),
       ),
     );

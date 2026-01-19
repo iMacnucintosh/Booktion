@@ -79,7 +79,7 @@ enum BookSortOption {
 @riverpod
 class BooksSortOrder extends _$BooksSortOrder {
   @override
-  BookSortOption build() => BookSortOption.positionAsc;
+  BookSortOption build() => BookSortOption.recentFirst;
 
   void setSort(BookSortOption option) {
     state = option;
