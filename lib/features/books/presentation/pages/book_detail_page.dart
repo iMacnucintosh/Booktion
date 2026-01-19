@@ -252,6 +252,13 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
                           // Info cards
                           _buildInfoSection(context),
 
+                          // Reading period (stepper style)
+                          if (book.fechaTerminado != null &&
+                              book.fechaTerminado!.isNotEmpty) ...[
+                            const SizedBox(height: 28),
+                            _buildPeriodSection(context),
+                          ],
+
                           // Tags
                           if (book.etiquetas.isNotEmpty) ...[
                             const SizedBox(height: 28),
@@ -498,24 +505,16 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
       ));
     }
 
-    if (book.fechaTerminado != null && book.fechaTerminado!.isNotEmpty) {
-      items.add(_InfoItem(
-        icon: Icons.calendar_today_rounded,
-        label: 'Período',
-        value: book.fechaTerminado!,
-      ));
-    }
-
     if (items.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Información', style: theme.textTheme.titleLarge),
-        const SizedBox(height: 12),
+        Text('Información', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 10),
         Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 8,
+          runSpacing: 8,
           children: items.map((item) => _buildInfoCard(context, item)).toList(),
         ),
       ],
@@ -526,26 +525,349 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(item.icon, size: 20, color: AppColors.primary),
-          const SizedBox(width: 12),
+          Icon(item.icon, size: 18, color: AppColors.primary),
+          const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(item.label, style: theme.textTheme.bodySmall),
-              Text(item.value, style: theme.textTheme.titleMedium),
+              Text(
+                item.label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+              Text(
+                item.value,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildPeriodSection(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Parse the date range (format: "start → end" or just "start")
+    final dateString = book.fechaTerminado!;
+    late String startDateRaw;
+    String? endDateRaw;
+    late String startDateFormatted;
+    String? endDateFormatted;
+
+    if (dateString.contains('→')) {
+      final parts = dateString.split('→').map((e) => e.trim()).toList();
+      startDateRaw = parts[0];
+      endDateRaw = parts.length > 1 ? parts[1] : null;
+      startDateFormatted = _formatDate(startDateRaw);
+      endDateFormatted = endDateRaw != null ? _formatDate(endDateRaw) : null;
+    } else {
+      startDateRaw = dateString;
+      startDateFormatted = _formatDate(dateString);
+    }
+
+    final isOngoing = endDateFormatted == null && book.isReading;
+    final isCompleted = book.isCompleted;
+
+    // Calculate days between dates
+    final daysBetween = _calculateDays(startDateRaw, endDateRaw);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Período de lectura', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              // Start date node
+              Expanded(
+                child: _buildDateNode(
+                  context,
+                  icon: Icons.play_arrow_rounded,
+                  label: 'Inicio',
+                  date: startDateFormatted,
+                  color: AppColors.primary,
+                  isActive: true,
+                ),
+              ),
+
+              // Connecting line with progress and days
+              Expanded(
+                child: _buildConnectingLine(
+                  context,
+                  isCompleted: isCompleted,
+                  isOngoing: isOngoing,
+                  daysBetween: daysBetween,
+                ),
+              ),
+
+              // End date node
+              Expanded(
+                child: _buildDateNode(
+                  context,
+                  icon: isCompleted
+                      ? Icons.check_circle_rounded
+                      : Icons.flag_rounded,
+                  label: isOngoing ? 'En curso' : 'Fin',
+                  date: endDateFormatted ?? (isOngoing ? '...' : '-'),
+                  color: isCompleted
+                      ? AppColors.statusCompleted
+                      : (isOngoing
+                          ? AppColors.statusReading
+                          : theme.colorScheme.outline),
+                  isActive: isCompleted || isOngoing,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateNode(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String date,
+    required Color color,
+    required bool isActive,
+  }) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        // Icon circle
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: isActive
+                ? color.withValues(alpha: 0.15)
+                : theme.colorScheme.surface,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isActive ? color : theme.colorScheme.outline,
+              width: 2,
+            ),
+          ),
+          child: Icon(
+            icon,
+            size: 22,
+            color: isActive ? color : theme.colorScheme.outline,
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Label
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.outline,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Date
+        Text(
+          date,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: isActive ? color : theme.colorScheme.outline,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConnectingLine(
+    BuildContext context, {
+    required bool isCompleted,
+    required bool isOngoing,
+    int? daysBetween,
+  }) {
+    final theme = Theme.of(context);
+    final activeColor = isCompleted
+        ? AppColors.statusCompleted
+        : (isOngoing ? AppColors.statusReading : theme.colorScheme.outline);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 40), // Align with circles
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Days badge
+          if (daysBetween != null && daysBetween > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: activeColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: activeColor.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.schedule_rounded,
+                    size: 14,
+                    color: activeColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    daysBetween == 1 ? '1 día' : '$daysBetween días',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: activeColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (isOngoing)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: activeColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: activeColor.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.auto_stories_rounded,
+                    size: 14,
+                    color: activeColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Leyendo',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: activeColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Line with progress
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              // Background line
+              Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Progress line
+              if (isCompleted || isOngoing)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: isCompleted ? 1.0 : 0.5,
+                    child: Container(
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: activeColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+              // Animated dot for ongoing
+              if (isOngoing)
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: AppColors.statusReading,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.statusReading.withValues(alpha: 0.5),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String dateStr) {
+    try {
+      final date = DateTime.parse(dateStr);
+      final months = [
+        'ene',
+        'feb',
+        'mar',
+        'abr',
+        'may',
+        'jun',
+        'jul',
+        'ago',
+        'sep',
+        'oct',
+        'nov',
+        'dic'
+      ];
+      return '${date.day} ${months[date.month - 1]} ${date.year}';
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  int? _calculateDays(String startDateStr, String? endDateStr) {
+    try {
+      final startDate = DateTime.parse(startDateStr);
+
+      // If no end date, calculate days from start to today (for ongoing books)
+      if (endDateStr == null) {
+        if (book.isReading) {
+          return DateTime.now().difference(startDate).inDays;
+        }
+        return null;
+      }
+
+      final endDate = DateTime.parse(endDateStr);
+      return endDate.difference(startDate).inDays;
+    } catch (e) {
+      return null;
+    }
   }
 
   Widget _buildTagsSection(BuildContext context) {
@@ -703,7 +1025,7 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
   void _showDeleteConfirmation(BuildContext context, WidgetRef ref) {
     // Save the page context before showing the dialog
     final pageContext = context;
-    
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
