@@ -8,8 +8,7 @@ import 'env_loader_io.dart' if (dart.library.html) 'env_loader_web.dart'
 Future<void> loadEnvironment() async {
   // Check if env vars are passed via --dart-define first (used in production/release)
   if (EnvConfig.isCompileTimeConfig) {
-    debugPrint('✅ Loaded from --dart-define (compile-time)');
-    debugPrint('   API Key: ${EnvConfig.notionApiKey.substring(0, 10)}...');
+    debugPrint('✅ Environment loaded (compile-time)');
     return;
   }
 
@@ -17,8 +16,8 @@ Future<void> loadEnvironment() async {
   await platform.loadEnvFromPlatform();
   
   if (EnvConfig.isConfigured) {
-    debugPrint('✅ Loaded from .env file');
+    debugPrint('✅ Environment loaded (.env file)');
   } else {
-    debugPrint('⚠️ Environment variables not configured!');
+    debugPrint('⚠️ Environment not configured! Use: --dart-define-from-file=.env');
   }
 }
