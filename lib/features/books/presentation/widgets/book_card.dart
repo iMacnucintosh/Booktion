@@ -20,9 +20,11 @@ class BookCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
+    // RepaintBoundary isolates this widget's painting from the rest of the tree
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
@@ -119,6 +121,7 @@ class BookCard extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -191,6 +194,9 @@ class BookCard extends StatelessWidget {
           fit: BoxFit.cover,
           width: iconSize,
           height: iconSize,
+          // Limit decoded image size for better performance
+          cacheWidth: (iconSize * 2).toInt(),
+          cacheHeight: (iconSize * 2).toInt(),
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
             return Center(

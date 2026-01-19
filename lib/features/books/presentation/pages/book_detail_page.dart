@@ -385,6 +385,8 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
           Image.network(
             book.coverUrl!,
             fit: BoxFit.cover,
+            // Limit decoded image size for better performance
+            cacheWidth: 800,
             errorBuilder: (_, __, ___) => _buildGradientBackground(context),
           ),
           // Gradient overlay
@@ -451,6 +453,9 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
           fit: BoxFit.cover,
           width: iconSize,
           height: iconSize,
+          // Limit decoded image size for better performance
+          cacheWidth: (iconSize * 2).toInt(),
+          cacheHeight: (iconSize * 2).toInt(),
           errorBuilder: (_, __, ___) => const Icon(
             Icons.menu_book_rounded,
             color: AppColors.primary,
