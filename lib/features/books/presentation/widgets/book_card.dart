@@ -92,25 +92,6 @@ class BookCard extends StatelessWidget {
                 ),
               ),
 
-              // Pages count (if available)
-              if (book.numPaginas != null) ...[
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${book.numPaginas}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
-                    Text(
-                      'págs',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ],
             ],
           ),
         ),

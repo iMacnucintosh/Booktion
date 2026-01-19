@@ -90,10 +90,16 @@ class _BooksPageState extends ConsumerState<BooksPage> {
               ),
             ),
             IconButton(
+              onPressed: _showSortOptions,
+              icon: const Icon(Icons.sort_rounded),
+              tooltip: 'Ordenar',
+            ),
+            IconButton(
               onPressed: () {
                 setState(() => _isSearching = true);
               },
               icon: const Icon(Icons.search_rounded),
+              tooltip: 'Buscar',
             ),
           ] else ...[
             Expanded(
@@ -220,5 +226,84 @@ class _BooksPageState extends ConsumerState<BooksPage> {
 
   void _navigateToDetail(Book book) {
     context.push(AppRoutes.bookDetailPath(book.id), extra: book);
+  }
+
+  void _showSortOptions() {
+    final currentSort = ref.read(booksSortOrderProvider);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.8,
+        expand: false,
+        builder: (context, scrollController) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Text(
+                  'Ordenar por',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const Divider(),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  children: BookSortOption.values.map((option) {
+                    final isSelected = option == currentSort;
+                    return ListTile(
+                      leading: Icon(
+                        _getSortIcon(option),
+                        color: isSelected ? AppColors.primary : null,
+                      ),
+                      title: Text(
+                        option.displayName,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.w600 : null,
+                          color: isSelected ? AppColors.primary : null,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_rounded, color: AppColors.primary)
+                          : null,
+                      onTap: () {
+                        ref.read(booksSortOrderProvider.notifier).setSort(option);
+                        Navigator.pop(context);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _getSortIcon(BookSortOption option) {
+    switch (option) {
+      case BookSortOption.nameAsc:
+      case BookSortOption.nameDesc:
+        return Icons.sort_by_alpha_rounded;
+      case BookSortOption.authorAsc:
+      case BookSortOption.authorDesc:
+        return Icons.person_rounded;
+      case BookSortOption.ratingDesc:
+      case BookSortOption.ratingAsc:
+        return Icons.star_rounded;
+      case BookSortOption.positionAsc:
+      case BookSortOption.positionDesc:
+        return Icons.format_list_numbered_rounded;
+      case BookSortOption.recentFirst:
+      case BookSortOption.oldestFirst:
+        return Icons.calendar_today_rounded;
+    }
   }
 }

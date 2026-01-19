@@ -22,16 +22,21 @@ class BookDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bookAsync = book != null
-        ? AsyncValue.data(book!)
-        : ref.watch(bookDetailProvider(bookId));
+    // Always watch the provider to get fresh data after updates
+    final bookAsync = ref.watch(bookDetailProvider(bookId));
 
     return Scaffold(
       body: bookAsync.when(
         data: (book) => _BookDetailContent(book: book),
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
+        loading: () {
+          // Show cached book while loading, or spinner if no cache
+          if (book != null) {
+            return _BookDetailContent(book: book!);
+          }
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          );
+        },
         error: (error, _) => _buildErrorState(context, ref, error.toString()),
       ),
     );

@@ -36,12 +36,12 @@ class BookModel with _$BookModel {
     final estadoValue = _extractSelect(properties['Estado']);
     final icon = _extractIcon(json['icon']);
     final cover = _extractCover(json['cover']);
-
+    
     return BookModel(
       id: json['id'] as String,
       nombre: _extractTitle(properties['Nombre']),
-      autor: _extractRichText(properties['Autor']) ?? '',
-      serie: _extractRichText(properties['Serie']),
+      autor: _extractAutor(properties['Autor']) ?? '',
+      serie: _extractMultiSelectAsString(properties['Serie']),
       estado: estadoValue ?? 'Pendiente',
       valoracion: _extractRating(properties['Valoración']),
       etiquetas: _extractMultiSelect(properties['Etiquetas']),
@@ -67,25 +67,24 @@ class BookModel with _$BookModel {
           }
         ]
       },
-      'Autor': {
-        'rich_text': [
-          {
-            'text': {'content': autor}
-          }
-        ]
-      },
       'Estado': {
         'status': {'name': estado}
       },
     };
 
+    // Autor is multi_select - split by comma if multiple authors
+    if (autor.isNotEmpty) {
+      final autores = autor.split(',').map((a) => a.trim()).where((a) => a.isNotEmpty);
+      properties['Autor'] = {
+        'multi_select': autores.map((a) => {'name': a}).toList()
+      };
+    }
+
+    // Serie is multi_select - split by comma if multiple series
     if (serie != null && serie!.isNotEmpty) {
+      final series = serie!.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty);
       properties['Serie'] = {
-        'rich_text': [
-          {
-            'text': {'content': serie}
-          }
-        ]
+        'multi_select': series.map((s) => {'name': s}).toList()
       };
     }
 
@@ -107,10 +106,18 @@ class BookModel with _$BookModel {
       };
     }
 
+    // Nº Páginas is rich_text (not number)
     if (numPaginas != null) {
-      properties['Nº Páginas'] = {'number': numPaginas};
+      properties['Nº Páginas'] = {
+        'rich_text': [
+          {
+            'text': {'content': numPaginas.toString()}
+          }
+        ]
+      };
     }
 
+    // Posición - check if it's number or rich_text in your DB
     if (posicion != null) {
       properties['Posición'] = {'number': posicion};
     }
@@ -202,6 +209,90 @@ String? _extractRichText(dynamic property) {
   return result.isEmpty ? null : result;
 }
 
+/// Extract author - handles multi_select, rich_text, relation, rollup, and people types
+String? _extractAutor(dynamic property) {
+  if (property == null) return null;
+  
+  final type = property['type'] as String?;
+  
+  // Handle multi_select type (most common for authors in Notion)
+  if (type == 'multi_select') {
+    final multiSelect = property['multi_select'] as List?;
+    if (multiSelect == null || multiSelect.isEmpty) return null;
+    
+    final names = multiSelect
+        .map((item) => item['name'] as String?)
+        .whereType<String>()
+        .toList();
+    return names.isNotEmpty ? names.join(', ') : null;
+  }
+  
+  // Handle rich_text type
+  if (type == 'rich_text') {
+    return _extractRichText(property);
+  }
+  
+  // Handle select type (single author)
+  if (type == 'select') {
+    final select = property['select'] as Map<String, dynamic>?;
+    if (select == null) return null;
+    return select['name'] as String?;
+  }
+  
+  // Handle relation type (linked to another database)
+  if (type == 'relation') {
+    final relations = property['relation'] as List?;
+    if (relations == null || relations.isEmpty) return null;
+    return null;
+  }
+  
+  // Handle rollup type (aggregation from relations)
+  if (type == 'rollup') {
+    final rollup = property['rollup'] as Map<String, dynamic>?;
+    if (rollup == null) return null;
+    
+    final rollupType = rollup['type'] as String?;
+    
+    if (rollupType == 'array') {
+      final array = rollup['array'] as List?;
+      if (array == null || array.isEmpty) return null;
+      
+      final names = <String>[];
+      for (final item in array) {
+        final itemType = item['type'] as String?;
+        if (itemType == 'title') {
+          final titleList = item['title'] as List?;
+          if (titleList != null && titleList.isNotEmpty) {
+            names.add(titleList[0]['plain_text'] as String? ?? '');
+          }
+        } else if (itemType == 'rich_text') {
+          final richTextList = item['rich_text'] as List?;
+          if (richTextList != null && richTextList.isNotEmpty) {
+            names.add(richTextList[0]['plain_text'] as String? ?? '');
+          }
+        }
+      }
+      return names.isNotEmpty ? names.join(', ') : null;
+    }
+    
+    return null;
+  }
+  
+  // Handle people type
+  if (type == 'people') {
+    final people = property['people'] as List?;
+    if (people == null || people.isEmpty) return null;
+    
+    final names = people
+        .map((p) => p['name'] as String?)
+        .whereType<String>()
+        .toList();
+    return names.isNotEmpty ? names.join(', ') : null;
+  }
+  
+  return null;
+}
+
 String? _extractSelect(dynamic property) {
   if (property == null) return null;
   
@@ -230,11 +321,40 @@ List<String> _extractMultiSelect(dynamic property) {
   return multiSelect.map((e) => e['name'] as String).toList();
 }
 
+/// Extract multi_select as a comma-separated string
+String? _extractMultiSelectAsString(dynamic property) {
+  if (property == null) return null;
+  final multiSelect = property['multi_select'] as List?;
+  if (multiSelect == null || multiSelect.isEmpty) return null;
+  
+  final names = multiSelect
+      .map((e) => e['name'] as String?)
+      .whereType<String>()
+      .toList();
+  
+  return names.isNotEmpty ? names.join(', ') : null;
+}
+
 int? _extractNumber(dynamic property) {
   if (property == null) return null;
-  final number = property['number'];
-  if (number == null) return null;
-  return (number is int) ? number : (number as num).toInt();
+  
+  final type = property['type'] as String?;
+  
+  // Handle number type
+  if (type == 'number') {
+    final number = property['number'];
+    if (number == null) return null;
+    return (number is int) ? number : (number as num).toInt();
+  }
+  
+  // Handle rich_text type (number stored as text)
+  if (type == 'rich_text') {
+    final text = _extractRichText(property);
+    if (text == null || text.isEmpty) return null;
+    return int.tryParse(text.trim());
+  }
+  
+  return null;
 }
 
 String? _extractUrl(dynamic property) {

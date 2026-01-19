@@ -58,6 +58,34 @@ DeleteBook deleteBook(Ref ref) {
 
 // ==================== State Providers ====================
 
+/// Sort options for books list
+enum BookSortOption {
+  nameAsc('Nombre (A-Z)'),
+  nameDesc('Nombre (Z-A)'),
+  authorAsc('Autor (A-Z)'),
+  authorDesc('Autor (Z-A)'),
+  ratingDesc('Mejor valorados'),
+  ratingAsc('Peor valorados'),
+  positionAsc('Posición (menor)'),
+  positionDesc('Posición (mayor)'),
+  recentFirst('Recientes primero'),
+  oldestFirst('Antiguos primero');
+
+  final String displayName;
+  const BookSortOption(this.displayName);
+}
+
+/// Sort order state
+@riverpod
+class BooksSortOrder extends _$BooksSortOrder {
+  @override
+  BookSortOption build() => BookSortOption.positionAsc;
+
+  void setSort(BookSortOption option) {
+    state = option;
+  }
+}
+
 /// Filter state for books list
 @riverpod
 class BooksFilter extends _$BooksFilter {
@@ -88,12 +116,13 @@ class BooksSearchQuery extends _$BooksSearchQuery {
   }
 }
 
-/// Provider for fetching books list with filters
+/// Provider for fetching books list with filters and sorting
 @riverpod
 Future<List<Book>> booksList(Ref ref) async {
   final getBooks = ref.watch(getBooksProvider);
   final filter = ref.watch(booksFilterProvider);
   final searchQuery = ref.watch(booksSearchQueryProvider);
+  final sortOption = ref.watch(booksSortOrderProvider);
 
   final result = await getBooks(
     status: filter,
@@ -102,8 +131,45 @@ Future<List<Book>> booksList(Ref ref) async {
 
   return result.fold(
     (failure) => throw Exception(failure.displayMessage),
-    (books) => books,
+    (books) => _sortBooks(books, sortOption),
   );
+}
+
+/// Sort books based on the selected option
+List<Book> _sortBooks(List<Book> books, BookSortOption option) {
+  final sorted = List<Book>.from(books);
+
+  switch (option) {
+    case BookSortOption.nameAsc:
+      sorted.sort(
+          (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
+    case BookSortOption.nameDesc:
+      sorted.sort(
+          (a, b) => b.nombre.toLowerCase().compareTo(a.nombre.toLowerCase()));
+    case BookSortOption.authorAsc:
+      sorted.sort(
+          (a, b) => a.autor.toLowerCase().compareTo(b.autor.toLowerCase()));
+    case BookSortOption.authorDesc:
+      sorted.sort(
+          (a, b) => b.autor.toLowerCase().compareTo(a.autor.toLowerCase()));
+    case BookSortOption.ratingDesc:
+      sorted.sort((a, b) => (b.valoracion ?? 0).compareTo(a.valoracion ?? 0));
+    case BookSortOption.ratingAsc:
+      sorted.sort((a, b) => (a.valoracion ?? 0).compareTo(b.valoracion ?? 0));
+    case BookSortOption.positionAsc:
+      sorted.sort((a, b) => (a.posicion ?? 9999).compareTo(b.posicion ?? 9999));
+    case BookSortOption.positionDesc:
+      sorted.sort((a, b) => (b.posicion ?? 0).compareTo(a.posicion ?? 0));
+    case BookSortOption.recentFirst:
+      // Sort by fechaTerminado descending (most recent first)
+      sorted.sort(
+          (a, b) => (b.fechaTerminado ?? '').compareTo(a.fechaTerminado ?? ''));
+    case BookSortOption.oldestFirst:
+      sorted.sort((a, b) =>
+          (a.fechaTerminado ?? 'zzzz').compareTo(b.fechaTerminado ?? 'zzzz'));
+  }
+
+  return sorted;
 }
 
 /// Provider for fetching a single book by ID
