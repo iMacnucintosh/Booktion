@@ -184,6 +184,82 @@ Future<Book> bookDetail(Ref ref, String id) async {
   );
 }
 
+// ==================== Suggestions Providers ====================
+
+/// Provider for unique authors from all books
+@riverpod
+Future<List<String>> authorSuggestions(Ref ref) async {
+  final booksAsync = ref.watch(booksListProvider);
+  return booksAsync.when(
+    data: (books) {
+      final authors = <String>{};
+      for (final book in books) {
+        // Split by comma in case of multiple authors
+        final bookAuthors = book.autor.split(',').map((a) => a.trim());
+        authors.addAll(bookAuthors.where((a) => a.isNotEmpty));
+      }
+      return authors.toList()..sort();
+    },
+    loading: () => [],
+    error: (_, __) => [],
+  );
+}
+
+/// Provider for unique series from all books
+@riverpod
+Future<List<String>> seriesSuggestions(Ref ref) async {
+  final booksAsync = ref.watch(booksListProvider);
+  return booksAsync.when(
+    data: (books) {
+      final series = <String>{};
+      for (final book in books) {
+        if (book.serie != null && book.serie!.isNotEmpty) {
+          // Split by comma in case of multiple series
+          final bookSeries = book.serie!.split(',').map((s) => s.trim());
+          series.addAll(bookSeries.where((s) => s.isNotEmpty));
+        }
+      }
+      return series.toList()..sort();
+    },
+    loading: () => [],
+    error: (_, __) => [],
+  );
+}
+
+/// Provider for unique genres from all books
+@riverpod
+Future<List<String>> genreSuggestions(Ref ref) async {
+  final booksAsync = ref.watch(booksListProvider);
+  return booksAsync.when(
+    data: (books) {
+      final genres = <String>{};
+      for (final book in books) {
+        genres.addAll(book.generos);
+      }
+      return genres.toList()..sort();
+    },
+    loading: () => [],
+    error: (_, __) => [],
+  );
+}
+
+/// Provider for unique tags from all books
+@riverpod
+Future<List<String>> tagSuggestions(Ref ref) async {
+  final booksAsync = ref.watch(booksListProvider);
+  return booksAsync.when(
+    data: (books) {
+      final tags = <String>{};
+      for (final book in books) {
+        tags.addAll(book.etiquetas);
+      }
+      return tags.toList()..sort();
+    },
+    loading: () => [],
+    error: (_, __) => [],
+  );
+}
+
 // ==================== Mutation Notifiers ====================
 
 /// State for book mutations (create, update, delete)

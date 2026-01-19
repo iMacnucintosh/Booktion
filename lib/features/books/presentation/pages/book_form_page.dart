@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/book.dart';
 import '../providers/books_provider.dart';
+import '../widgets/autocomplete_field.dart';
 import '../widgets/rating_stars.dart';
 
 /// Page for creating or editing a book
@@ -78,6 +79,12 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch suggestions providers
+    final authorSuggestions = ref.watch(authorSuggestionsProvider).valueOrNull ?? [];
+    final seriesSuggestions = ref.watch(seriesSuggestionsProvider).valueOrNull ?? [];
+    final genreSuggestions = ref.watch(genreSuggestionsProvider).valueOrNull ?? [];
+    final tagSuggestions = ref.watch(tagSuggestionsProvider).valueOrNull ?? [];
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? 'Editar libro' : 'Nuevo libro'),
@@ -113,16 +120,20 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
                   value?.isEmpty == true ? 'El título es requerido' : null,
             ),
             const SizedBox(height: 16),
-            _buildTextField(
+            // Author with autocomplete
+            AutocompleteField(
               controller: _autorController,
               label: 'Autor',
+              suggestions: authorSuggestions,
               validator: (value) =>
                   value?.isEmpty == true ? 'El autor es requerido' : null,
             ),
             const SizedBox(height: 16),
-            _buildTextField(
+            // Series with autocomplete
+            AutocompleteField(
               controller: _serieController,
               label: 'Serie (opcional)',
+              suggestions: seriesSuggestions,
             ),
 
             const SizedBox(height: 32),
@@ -169,16 +180,20 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
             // Tags section
             _buildSectionTitle('Etiquetas y géneros'),
             const SizedBox(height: 12),
-            _buildTextField(
+            // Tags with chip input
+            ChipInputField(
               controller: _etiquetasController,
-              label: 'Etiquetas (separadas por comas)',
-              hint: 'Ej: Cosmere, Favorito',
+              label: 'Etiquetas',
+              suggestions: tagSuggestions,
+              hint: 'Añadir etiqueta...',
             ),
             const SizedBox(height: 16),
-            _buildTextField(
+            // Genres with chip input
+            ChipInputField(
               controller: _generosController,
-              label: 'Géneros (separados por comas)',
-              hint: 'Ej: Fantasía, Medieval',
+              label: 'Géneros',
+              suggestions: genreSuggestions,
+              hint: 'Añadir género...',
             ),
 
             const SizedBox(height: 32),
