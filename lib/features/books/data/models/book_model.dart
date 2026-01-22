@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../domain/entities/book.dart';
+import 'author_model.dart';
 
 part 'book_model.freezed.dart';
 part 'book_model.g.dart';
@@ -13,7 +14,8 @@ class BookModel with _$BookModel {
   const factory BookModel({
     required String id,
     required String nombre,
-    required String autor,
+    @Default([]) List<String> autorIds,      // Author relation IDs from Notion
+    @Default([]) List<AuthorModel> autores,  // Resolved author data
     String? serie,
     @Default('Pendiente') String estado,
     int? valoracion,
@@ -40,7 +42,7 @@ class BookModel with _$BookModel {
     return BookModel(
       id: json['id'] as String,
       nombre: _extractTitle(properties['Nombre']),
-      autor: _extractAutor(properties['Autor']) ?? '',
+      autorIds: _extractRelationIds(properties['Autor']),
       serie: _extractMultiSelectAsString(properties['Serie']),
       estado: estadoValue ?? 'Pendiente',
       valoracion: _extractRating(properties['Valoración']),
@@ -55,6 +57,11 @@ class BookModel with _$BookModel {
       iconUrl: icon['url'],
       coverUrl: cover,
     );
+  }
+
+  /// Returns a copy with resolved author data
+  BookModel withAuthors(List<AuthorModel> resolvedAuthors) {
+    return copyWith(autores: resolvedAuthors);
   }
 
   /// Converts BookModel to Notion API properties format for creating/updating
@@ -72,11 +79,10 @@ class BookModel with _$BookModel {
       },
     };
 
-    // Autor is multi_select - split by comma if multiple authors
-    if (autor.isNotEmpty) {
-      final autores = autor.split(',').map((a) => a.trim()).where((a) => a.isNotEmpty);
+    // Autor is a relation - use author IDs
+    if (autorIds.isNotEmpty) {
       properties['Autor'] = {
-        'multi_select': autores.map((a) => {'name': a}).toList()
+        'relation': autorIds.map((id) => {'id': id}).toList()
       };
     }
 
@@ -144,7 +150,7 @@ class BookModel with _$BookModel {
     return Book(
       id: id,
       nombre: nombre,
-      autor: autor,
+      autores: autores.map((a) => a.toEntity()).toList(),
       serie: serie,
       estado: BookStatus.fromString(estado),
       valoracion: valoracion,
@@ -166,7 +172,8 @@ class BookModel with _$BookModel {
     return BookModel(
       id: book.id,
       nombre: book.nombre,
-      autor: book.autor,
+      autorIds: book.autores.map((a) => a.id).toList(),
+      autores: book.autores.map((a) => AuthorModel.fromEntity(a)).toList(),
       serie: book.serie,
       estado: book.estado.displayName,
       valoracion: book.valoracion,
@@ -209,88 +216,23 @@ String? _extractRichText(dynamic property) {
   return result.isEmpty ? null : result;
 }
 
-/// Extract author - handles multi_select, rich_text, relation, rollup, and people types
-String? _extractAutor(dynamic property) {
-  if (property == null) return null;
+/// Extract relation IDs from a relation property
+List<String> _extractRelationIds(dynamic property) {
+  if (property == null) return [];
   
   final type = property['type'] as String?;
   
-  // Handle multi_select type (most common for authors in Notion)
-  if (type == 'multi_select') {
-    final multiSelect = property['multi_select'] as List?;
-    if (multiSelect == null || multiSelect.isEmpty) return null;
-    
-    final names = multiSelect
-        .map((item) => item['name'] as String?)
-        .whereType<String>()
-        .toList();
-    return names.isNotEmpty ? names.join(', ') : null;
-  }
-  
-  // Handle rich_text type
-  if (type == 'rich_text') {
-    return _extractRichText(property);
-  }
-  
-  // Handle select type (single author)
-  if (type == 'select') {
-    final select = property['select'] as Map<String, dynamic>?;
-    if (select == null) return null;
-    return select['name'] as String?;
-  }
-  
-  // Handle relation type (linked to another database)
   if (type == 'relation') {
     final relations = property['relation'] as List?;
-    if (relations == null || relations.isEmpty) return null;
-    return null;
-  }
-  
-  // Handle rollup type (aggregation from relations)
-  if (type == 'rollup') {
-    final rollup = property['rollup'] as Map<String, dynamic>?;
-    if (rollup == null) return null;
+    if (relations == null || relations.isEmpty) return [];
     
-    final rollupType = rollup['type'] as String?;
-    
-    if (rollupType == 'array') {
-      final array = rollup['array'] as List?;
-      if (array == null || array.isEmpty) return null;
-      
-      final names = <String>[];
-      for (final item in array) {
-        final itemType = item['type'] as String?;
-        if (itemType == 'title') {
-          final titleList = item['title'] as List?;
-          if (titleList != null && titleList.isNotEmpty) {
-            names.add(titleList[0]['plain_text'] as String? ?? '');
-          }
-        } else if (itemType == 'rich_text') {
-          final richTextList = item['rich_text'] as List?;
-          if (richTextList != null && richTextList.isNotEmpty) {
-            names.add(richTextList[0]['plain_text'] as String? ?? '');
-          }
-        }
-      }
-      return names.isNotEmpty ? names.join(', ') : null;
-    }
-    
-    return null;
-  }
-  
-  // Handle people type
-  if (type == 'people') {
-    final people = property['people'] as List?;
-    if (people == null || people.isEmpty) return null;
-    
-    final names = people
-        .map((p) => p['name'] as String?)
+    return relations
+        .map((r) => r['id'] as String?)
         .whereType<String>()
         .toList();
-    return names.isNotEmpty ? names.join(', ') : null;
   }
   
-  return null;
+  return [];
 }
 
 String? _extractSelect(dynamic property) {

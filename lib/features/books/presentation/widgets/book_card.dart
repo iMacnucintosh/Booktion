@@ -29,11 +29,6 @@ class BookCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
-          border: book.isReading
-              ? Border.all(
-                  color: AppColors.statusReading.withValues(alpha: 0.5),
-                  width: 1.5)
-              : null,
         ),
         child: Stack(
           children: [
@@ -60,11 +55,8 @@ class BookCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
 
-                        // Author
-                        Text(
-                          book.autor,
-                          style: theme.textTheme.bodyMedium,
-                        ),
+                        // Authors with photos
+                        _buildAuthors(context),
 
                         // Series (if available)
                         if (book.serie != null && book.serie!.isNotEmpty) ...[
@@ -99,6 +91,26 @@ class BookCard extends StatelessWidget {
               ),
             ),
 
+            // Reading indicator - bottom right
+            if (book.estado == BookStatus.enCurso)
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: const BoxDecoration(
+                    color: AppColors.statusReading,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.auto_stories_rounded,
+                    color: Colors.white,
+                    size: 11,
+                  ),
+                ),
+              ),
+
             // Completed indicator - bottom right
             if (book.estado == BookStatus.terminado)
               Positioned(
@@ -122,6 +134,17 @@ class BookCard extends StatelessWidget {
         ),
       ),
       ),
+    );
+  }
+
+  Widget _buildAuthors(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Text(
+      book.autor.isNotEmpty ? book.autor : 'Autor desconocido',
+      style: theme.textTheme.bodyMedium,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 

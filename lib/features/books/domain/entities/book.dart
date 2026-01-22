@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'author.dart';
+
 part 'book.freezed.dart';
 
 /// Book reading status
@@ -27,7 +29,7 @@ class Book with _$Book {
   const factory Book({
     required String id,
     required String nombre,
-    required String autor,
+    @Default([]) List<Author> autores,  // Authors from relation
     String? serie,
     @Default(BookStatus.pendiente) BookStatus estado,
     int? valoracion,
@@ -42,6 +44,9 @@ class Book with _$Book {
     String? iconUrl,        // External/file icon URL from Notion
     String? coverUrl,       // Cover image URL from Notion
   }) = _Book;
+
+  /// Returns the author names as a single string (for display)
+  String get autor => autores.map((a) => a.nombre).join(', ');
 
   /// Returns true if the book has been completed
   bool get isCompleted => estado == BookStatus.terminado;
@@ -68,6 +73,5 @@ class Book with _$Book {
   factory Book.empty() => const Book(
         id: '',
         nombre: '',
-        autor: '',
       );
 }

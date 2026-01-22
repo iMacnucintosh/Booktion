@@ -120,13 +120,12 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
                   value?.isEmpty == true ? 'El título es requerido' : null,
             ),
             const SizedBox(height: 16),
-            // Author with autocomplete
+            // Author (read-only info, managed in Notion via relations)
             AutocompleteField(
               controller: _autorController,
-              label: 'Autor',
+              label: 'Autor (gestionar en Notion)',
               suggestions: authorSuggestions,
-              validator: (value) =>
-                  value?.isEmpty == true ? 'El autor es requerido' : null,
+              // Author is optional - managed via Notion relations
             ),
             const SizedBox(height: 16),
             // Series with autocomplete
@@ -365,7 +364,8 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
     final book = Book(
       id: widget.book?.id ?? '',
       nombre: _nombreController.text.trim(),
-      autor: _autorController.text.trim(),
+      // Keep existing authors if editing, otherwise empty (authors are relations in Notion)
+      autores: widget.book?.autores ?? [],
       serie: _serieController.text.trim().isEmpty
           ? null
           : _serieController.text.trim(),
