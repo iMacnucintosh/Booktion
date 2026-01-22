@@ -141,10 +141,8 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
     final coverHeight = hasCover ? 350.0 : 220.0;
     final topPadding = MediaQuery.of(context).padding.top;
 
-    // Calculate parallax and scale effects
+    // Calculate parallax effect for cover
     final parallaxOffset = _scrollOffset * 0.5;
-    final iconScale = (1 - (_scrollOffset / 300).clamp(0, 0.3)).toDouble();
-    final iconOffset = (_scrollOffset * 0.3).clamp(0, 50).toDouble();
 
     return Stack(
       children: [
@@ -296,14 +294,7 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
                   Positioned(
                     top: 0,
                     left: 20,
-                    child: Transform.translate(
-                      offset: Offset(0, -iconOffset),
-                      child: Transform.scale(
-                        scale: iconScale,
-                        alignment: Alignment.topLeft,
-                        child: _buildFloatingIcon(context),
-                      ),
-                    ),
+                    child: _buildFloatingIcon(context),
                   ),
                 ],
               ),
@@ -438,38 +429,52 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
     const double iconSize = 90;
     const double borderRadius = 20;
 
-    Widget iconContent;
-
     if (book.iconEmoji != null) {
-      iconContent = Center(
-        child: Text(
-          book.iconEmoji!,
-          style: const TextStyle(fontSize: 48),
+      return Container(
+        width: iconSize,
+        height: iconSize,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(borderRadius),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
-      );
-    } else if (book.iconUrl != null) {
-      iconContent = ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: Image.network(
-          book.iconUrl!,
-          fit: BoxFit.cover,
-          width: iconSize,
-          height: iconSize,
-          // Limit decoded image size for better performance
-          cacheWidth: (iconSize * 2).toInt(),
-          cacheHeight: (iconSize * 2).toInt(),
-          errorBuilder: (_, __, ___) => const Icon(
-            Icons.menu_book_rounded,
-            color: AppColors.primary,
-            size: 40,
+        child: Center(
+          child: Text(
+            book.iconEmoji!,
+            style: const TextStyle(fontSize: 48),
           ),
         ),
       );
-    } else {
-      iconContent = const Icon(
-        Icons.menu_book_rounded,
-        color: AppColors.primary,
-        size: 40,
+    }
+
+    if (book.iconUrl != null) {
+      return Container(
+        width: iconSize,
+        height: iconSize,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(borderRadius),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 8),
+            ),
+          ],
+          image: DecorationImage(
+            image: NetworkImage(book.iconUrl!),
+            fit: BoxFit.cover,
+            onError: (_, __) {},
+          ),
+        ),
       );
     }
 
@@ -488,7 +493,11 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
           ),
         ],
       ),
-      child: iconContent,
+      child: const Icon(
+        Icons.menu_book_rounded,
+        color: AppColors.primary,
+        size: 40,
+      ),
     );
   }
 
@@ -542,7 +551,7 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Author photo
+        // Author photo - using CircleAvatar for proper aspect ratio
         Container(
           width: avatarSize,
           height: avatarSize,
@@ -556,27 +565,21 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
                 offset: const Offset(0, 2),
               ),
             ],
+            image: author.iconUrl != null
+                ? DecorationImage(
+                    image: NetworkImage(author.iconUrl!),
+                    fit: BoxFit.cover,
+                    onError: (_, __) {},
+                  )
+                : null,
           ),
-          clipBehavior: Clip.antiAlias,
-          child: author.iconUrl != null
-              ? Image.network(
-                  author.iconUrl!,
-                  fit: BoxFit.cover,
-                  width: avatarSize,
-                  height: avatarSize,
-                  cacheWidth: (avatarSize * 2).toInt(),
-                  cacheHeight: (avatarSize * 2).toInt(),
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.person,
-                    size: 24,
-                    color: AppColors.primary,
-                  ),
-                )
-              : const Icon(
+          child: author.iconUrl == null
+              ? const Icon(
                   Icons.person,
                   size: 24,
                   color: AppColors.primary,
-                ),
+                )
+              : null,
         ),
         const SizedBox(width: 12),
         // Author name

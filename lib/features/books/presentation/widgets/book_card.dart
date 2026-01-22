@@ -210,34 +210,11 @@ class BookCard extends StatelessWidget {
               offset: const Offset(0, 2),
             ),
           ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Image.network(
-          book.iconUrl!,
-          fit: BoxFit.cover,
-          width: iconSize,
-          height: iconSize,
-          // Limit decoded image size for better performance
-          cacheWidth: (iconSize * 2).toInt(),
-          cacheHeight: (iconSize * 2).toInt(),
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
-                      : null,
-                  color: AppColors.primary,
-                ),
-              ),
-            );
-          },
-          errorBuilder: (_, __, ___) => _buildDefaultIcon(context),
+          image: DecorationImage(
+            image: NetworkImage(book.iconUrl!),
+            fit: BoxFit.cover,
+            onError: (_, __) {},
+          ),
         ),
       );
     }
