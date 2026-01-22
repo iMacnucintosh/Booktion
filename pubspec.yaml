@@ -72,7 +72,7 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
-  
+
   # Note: Create a .env file in the root directory with:
   # NOTION_API_KEY=your_api_key
   # NOTION_DATABASE_ID=your_database_id

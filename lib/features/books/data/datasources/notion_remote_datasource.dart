@@ -21,6 +21,12 @@ abstract class NotionRemoteDataSource {
 
   /// Archives (deletes) a book page in Notion
   Future<void> deleteBook(String id);
+
+  /// Fetches all authors from Notion database
+  Future<List<AuthorModel>> getAllAuthors();
+
+  /// Creates a new author in Notion
+  Future<AuthorModel> createAuthor(String nombre);
 }
 
 /// Implementation of Notion remote data source
@@ -150,6 +156,74 @@ class NotionRemoteDataSourceImpl implements NotionRemoteDataSource {
           'archived': true,
         },
       );
+    } on DioException catch (e) {
+      throw e.error ?? ServerException(message: e.message ?? 'Error desconocido');
+    }
+  }
+
+  @override
+  Future<List<AuthorModel>> getAllAuthors() async {
+    try {
+      final databaseId = EnvConfig.notionAuthorsDatabaseId;
+      if (databaseId.isEmpty) {
+        return [];
+      }
+
+      final response = await _dio.post(
+        '/databases/$databaseId/query',
+        data: {
+          'sorts': [
+            {
+              'property': 'Nombre',
+              'direction': 'ascending',
+            }
+          ],
+        },
+      );
+
+      final results = response.data['results'] as List;
+      final authors = results.map((json) => AuthorModel.fromNotionJson(json)).toList();
+      
+      // Update cache
+      for (final author in authors) {
+        _authorCache[author.id] = author;
+      }
+      
+      return authors;
+    } on DioException catch (e) {
+      throw e.error ?? ServerException(message: e.message ?? 'Error desconocido');
+    }
+  }
+
+  @override
+  Future<AuthorModel> createAuthor(String nombre) async {
+    try {
+      final databaseId = EnvConfig.notionAuthorsDatabaseId;
+      if (databaseId.isEmpty) {
+        throw ServerException(message: 'Base de datos de autores no configurada');
+      }
+
+      final response = await _dio.post(
+        '/pages',
+        data: {
+          'parent': {
+            'database_id': databaseId,
+          },
+          'properties': {
+            'Nombre': {
+              'title': [
+                {
+                  'text': {'content': nombre}
+                }
+              ]
+            },
+          },
+        },
+      );
+
+      final author = AuthorModel.fromNotionJson(response.data);
+      _authorCache[author.id] = author;
+      return author;
     } on DioException catch (e) {
       throw e.error ?? ServerException(message: e.message ?? 'Error desconocido');
     }

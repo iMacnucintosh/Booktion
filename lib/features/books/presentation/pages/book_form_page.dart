@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/author.dart';
 import '../../domain/entities/book.dart';
 import '../providers/books_provider.dart';
 import '../widgets/autocomplete_field.dart';
@@ -21,7 +22,6 @@ class BookFormPage extends ConsumerStatefulWidget {
 class _BookFormPageState extends ConsumerState<BookFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nombreController;
-  late final TextEditingController _autorController;
   late final TextEditingController _serieController;
   late final TextEditingController _numPaginasController;
   late final TextEditingController _posicionController;
@@ -29,10 +29,12 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
   late final TextEditingController _urlController;
   late final TextEditingController _etiquetasController;
   late final TextEditingController _generosController;
+  late final TextEditingController _newAuthorController;
 
   late BookStatus _estado;
   int? _valoracion;
   bool _isLoading = false;
+  Author? _selectedAuthor;
 
   bool get _isEditing => widget.book != null;
 
@@ -42,7 +44,6 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
     final book = widget.book;
 
     _nombreController = TextEditingController(text: book?.nombre ?? '');
-    _autorController = TextEditingController(text: book?.autor ?? '');
     _serieController = TextEditingController(text: book?.serie ?? '');
     _numPaginasController = TextEditingController(
       text: book?.numPaginas?.toString() ?? '',
@@ -58,15 +59,17 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
     _generosController = TextEditingController(
       text: book?.generos.join(', ') ?? '',
     );
+    _newAuthorController = TextEditingController();
 
     _estado = book?.estado ?? BookStatus.pendiente;
     _valoracion = book?.valoracion;
+    _selectedAuthor =
+        book?.autores.isNotEmpty == true ? book!.autores.first : null;
   }
 
   @override
   void dispose() {
     _nombreController.dispose();
-    _autorController.dispose();
     _serieController.dispose();
     _numPaginasController.dispose();
     _posicionController.dispose();
@@ -74,16 +77,19 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
     _urlController.dispose();
     _etiquetasController.dispose();
     _generosController.dispose();
+    _newAuthorController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     // Watch suggestions providers
-    final authorSuggestions = ref.watch(authorSuggestionsProvider).valueOrNull ?? [];
-    final seriesSuggestions = ref.watch(seriesSuggestionsProvider).valueOrNull ?? [];
-    final genreSuggestions = ref.watch(genreSuggestionsProvider).valueOrNull ?? [];
+    final seriesSuggestions =
+        ref.watch(seriesSuggestionsProvider).valueOrNull ?? [];
+    final genreSuggestions =
+        ref.watch(genreSuggestionsProvider).valueOrNull ?? [];
     final tagSuggestions = ref.watch(tagSuggestionsProvider).valueOrNull ?? [];
+    final authorsAsync = ref.watch(authorsListProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -120,13 +126,8 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
                   value?.isEmpty == true ? 'El título es requerido' : null,
             ),
             const SizedBox(height: 16),
-            // Author (read-only info, managed in Notion via relations)
-            AutocompleteField(
-              controller: _autorController,
-              label: 'Autor (gestionar en Notion)',
-              suggestions: authorSuggestions,
-              // Author is optional - managed via Notion relations
-            ),
+            // Author selector
+            _buildAuthorSelector(authorsAsync),
             const SizedBox(height: 16),
             // Series with autocomplete
             AutocompleteField(
@@ -364,8 +365,7 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
     final book = Book(
       id: widget.book?.id ?? '',
       nombre: _nombreController.text.trim(),
-      // Keep existing authors if editing, otherwise empty (authors are relations in Notion)
-      autores: widget.book?.autores ?? [],
+      autores: _selectedAuthor != null ? [_selectedAuthor!] : [],
       serie: _serieController.text.trim().isEmpty
           ? null
           : _serieController.text.trim(),
@@ -386,9 +386,11 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
 
     bool success;
     if (_isEditing) {
-      success = await ref.read(updateBookNotifierProvider.notifier).update(book);
+      success =
+          await ref.read(updateBookNotifierProvider.notifier).update(book);
     } else {
-      success = await ref.read(createBookNotifierProvider.notifier).create(book);
+      success =
+          await ref.read(createBookNotifierProvider.notifier).create(book);
     }
 
     setState(() => _isLoading = false);
@@ -412,6 +414,159 @@ class _BookFormPageState extends ConsumerState<BookFormPage> {
           backgroundColor: AppColors.error,
         ),
       );
+    }
+  }
+
+  Widget _buildAuthorSelector(AsyncValue<List<Author>> authorsAsync) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Autor',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.outline,
+          ),
+        ),
+        const SizedBox(height: 8),
+        authorsAsync.when(
+          data: (authors) {
+            return Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: theme.colorScheme.outline),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<Author?>(
+                        isExpanded: true,
+                        hint: const Text('Seleccionar autor...'),
+                        value: _selectedAuthor != null
+                            ? authors
+                                    .where((a) => a.id == _selectedAuthor!.id)
+                                    .firstOrNull ??
+                                _selectedAuthor
+                            : null,
+                        items: [
+                          // Option to clear selection
+                          const DropdownMenuItem<Author?>(
+                            value: null,
+                            child: Text('Sin autor',
+                                style: TextStyle(fontStyle: FontStyle.italic)),
+                          ),
+                          ...authors.map((author) {
+                            return DropdownMenuItem<Author?>(
+                              value: author,
+                              child: Row(
+                                children: [
+                                  if (author.iconUrl != null)
+                                    CircleAvatar(
+                                      radius: 14,
+                                      backgroundImage:
+                                          NetworkImage(author.iconUrl!),
+                                    )
+                                  else
+                                    CircleAvatar(
+                                      radius: 14,
+                                      backgroundColor: AppColors.primary
+                                          .withValues(alpha: 0.2),
+                                      child: const Icon(Icons.person,
+                                          size: 14, color: AppColors.primary),
+                                    ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      author.nombre,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                        onChanged: (author) {
+                          setState(() {
+                            _selectedAuthor = author;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Button to create new author
+                IconButton(
+                  onPressed: () => _showCreateAuthorDialog(),
+                  icon: const Icon(Icons.person_add_rounded),
+                  tooltip: 'Crear nuevo autor',
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    foregroundColor: AppColors.primary,
+                  ),
+                ),
+              ],
+            );
+          },
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          error: (e, _) => Text(
+            'Error al cargar autores: $e',
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showCreateAuthorDialog() async {
+    _newAuthorController.clear();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nuevo autor'),
+        content: TextField(
+          controller: _newAuthorController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nombre del autor',
+            hintText: 'Ej: Brandon Sanderson',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Crear'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && _newAuthorController.text.trim().isNotEmpty) {
+      final nombre = _newAuthorController.text.trim();
+      final author =
+          await ref.read(createAuthorNotifierProvider.notifier).create(nombre);
+      if (author != null && mounted) {
+        setState(() {
+          _selectedAuthor = author;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Autor "$nombre" creado')),
+        );
+      }
     }
   }
 }

@@ -206,15 +206,10 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    if (book.autores.isNotEmpty ||
-                                        book.autor.isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      _buildAuthorsRow(context),
-                                    ],
                                     // Series if available
                                     if (book.serie != null &&
                                         book.serie!.isNotEmpty) ...[
-                                      const SizedBox(height: 2),
+                                      const SizedBox(height: 4),
                                       Text(
                                         book.serie!,
                                         style:
@@ -232,15 +227,27 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
 
                           const SizedBox(height: 20),
 
-                          // Status and rating
-                          Wrap(
-                            spacing: 16,
-                            runSpacing: 12,
+                          // Author section with status chip
+                          Row(
                             children: [
+                              // Author - prominent display
+                              if (book.autores.isNotEmpty ||
+                                  book.autor.isNotEmpty)
+                                Expanded(
+                                  child: _buildAuthorSection(context),
+                                )
+                              else
+                                const Spacer(),
+                              // Status chip
                               StatusChip(status: book.estado, isSelected: true),
-                              RatingStars(rating: book.valoracion, size: 24),
                             ],
                           ),
+
+                          // Rating
+                          if (book.valoracion != null) ...[
+                            const SizedBox(height: 20),
+                            RatingStars(rating: book.valoracion, size: 24),
+                          ],
 
                           const SizedBox(height: 28),
 
@@ -485,109 +492,112 @@ class _BookDetailContentState extends ConsumerState<_BookDetailContent> {
     );
   }
 
-  Widget _buildAuthorsRow(BuildContext context) {
+  Widget _buildAuthorSection(BuildContext context) {
     final theme = Theme.of(context);
 
     // If no authors with data, just show the text
     if (book.autores.isEmpty) {
-      return Text(
-        'por ${book.autor}',
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.outline,
-        ),
+      return Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.person,
+              size: 24,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              book.autor,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       );
     }
 
-    return Row(
-      children: [
-        Text(
-          'por ',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.outline,
-          ),
-        ),
-        Expanded(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: book.autores.map((author) {
-              return _buildAuthorChip(context, author);
-            }).toList(),
-          ),
-        ),
-      ],
+    // Show authors with photos
+    return Wrap(
+      spacing: 16,
+      runSpacing: 12,
+      children: book.autores.map((author) {
+        return _buildAuthorCard(context, author);
+      }).toList(),
     );
   }
 
-  Widget _buildAuthorChip(BuildContext context, dynamic author) {
+  Widget _buildAuthorCard(BuildContext context, dynamic author) {
     final theme = Theme.of(context);
-    const double avatarSize = 28;
+    const double avatarSize = 48;
 
-    return Container(
-      padding: const EdgeInsets.only(right: 10, top: 2, bottom: 2),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Author photo
-          if (author.iconUrl != null)
-            Container(
-              width: avatarSize,
-              height: avatarSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: theme.colorScheme.surface,
-                  width: 1,
-                ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Author photo
+        Container(
+          width: avatarSize,
+          height: avatarSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.primary.withValues(alpha: 0.15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-              child: ClipOval(
-                child: Image.network(
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: author.iconUrl != null
+              ? Image.network(
                   author.iconUrl!,
                   fit: BoxFit.cover,
                   width: avatarSize,
                   height: avatarSize,
                   cacheWidth: (avatarSize * 2).toInt(),
                   cacheHeight: (avatarSize * 2).toInt(),
-                  errorBuilder: (_, __, ___) => Container(
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                    child: const Icon(
-                      Icons.person,
-                      size: 16,
-                      color: AppColors.primary,
-                    ),
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.person,
+                    size: 24,
+                    color: AppColors.primary,
                   ),
+                )
+              : const Icon(
+                  Icons.person,
+                  size: 24,
+                  color: AppColors.primary,
                 ),
-              ),
-            )
-          else
-            Container(
-              width: avatarSize,
-              height: avatarSize,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.person,
-                size: 16,
-                color: AppColors.primary,
+        ),
+        const SizedBox(width: 12),
+        // Author name
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              author.nombre,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
-          const SizedBox(width: 8),
-          // Author name
-          Text(
-            author.nombre,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
+            Text(
+              'Autor',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 

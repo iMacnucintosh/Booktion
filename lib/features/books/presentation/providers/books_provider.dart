@@ -5,6 +5,7 @@ import '../../../../core/error/failures.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../data/datasources/notion_remote_datasource.dart';
 import '../../data/repositories/book_repository_impl.dart';
+import '../../domain/entities/author.dart';
 import '../../domain/entities/book.dart';
 import '../../domain/repositories/book_repository.dart';
 import '../../domain/usecases/create_book.dart';
@@ -54,6 +55,39 @@ UpdateBook updateBook(Ref ref) {
 @riverpod
 DeleteBook deleteBook(Ref ref) {
   return DeleteBook(ref.watch(bookRepositoryProvider));
+}
+
+// ==================== Authors Providers ====================
+
+/// Provider for fetching all authors
+@riverpod
+Future<List<Author>> authorsList(Ref ref) async {
+  final dataSource = ref.watch(notionRemoteDataSourceProvider);
+  final authorModels = await dataSource.getAllAuthors();
+  return authorModels.map((m) => m.toEntity()).toList();
+}
+
+/// Notifier for creating a new author
+@riverpod
+class CreateAuthorNotifier extends _$CreateAuthorNotifier {
+  @override
+  AsyncValue<Author?> build() => const AsyncValue.data(null);
+
+  Future<Author?> create(String nombre) async {
+    state = const AsyncValue.loading();
+    try {
+      final dataSource = ref.read(notionRemoteDataSourceProvider);
+      final authorModel = await dataSource.createAuthor(nombre);
+      final author = authorModel.toEntity();
+      state = AsyncValue.data(author);
+      // Invalidate the authors list to refresh it
+      ref.invalidate(authorsListProvider);
+      return author;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
+  }
 }
 
 // ==================== State Providers ====================
